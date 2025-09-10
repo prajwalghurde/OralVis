@@ -72,30 +72,30 @@ const ReviewPage = () => {
 
       <Grid container spacing={3} mt={2}>
         {["upper", "front", "lower"].map((section) => {
-          const imageUrl = submission[`${section}AnnotatedUrl`] || submission[`${section}ImageUrl`];
-          return (
-            <Grid item xs={12} md={4} key={section}>
-              <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
-                    {section.charAt(0).toUpperCase() + section.slice(1)} Teeth
-                  </Typography>
-                  {imageUrl ? (
-                    <AnnotationCanvas
-                      imageUrl.startsWith("http") ? imageUrl : `${import.meta.env.VITE_API_URL}/${imageUrl}`
+  const imageUrl = submission[`${section}AnnotatedUrl`] || submission[`${section}ImageUrl`];
+  return (
+    <Grid item xs={12} md={4} key={section}>
+      <Card>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            {section.charAt(0).toUpperCase() + section.slice(1)} Teeth
+          </Typography>
+          {imageUrl ? (
+            <AnnotationCanvas
+              imageUrl={imageUrl.startsWith("http") ? imageUrl : `${import.meta.env.VITE_API_URL}/${imageUrl}`}
+              onSave={(json, image) => handleSaveAnnotation(section, json, image)}
+            />
+          ) : (
+            <Typography color="text.secondary">
+              No image uploaded
+            </Typography>
+          )}
+        </CardContent>
+      </Card>
+    </Grid>
+  );
+})}
 
-                      onSave={(json, image) => handleSaveAnnotation(section, json, image)}
-                    />
-                  ) : (
-                    <Typography color="text.secondary">
-                      No image uploaded
-                    </Typography>
-                  )}
-                </CardContent>
-              </Card>
-            </Grid>
-          );
-        })}
       </Grid>
 
       <Button
