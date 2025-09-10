@@ -81,11 +81,14 @@ const ReviewPage = () => {
                   </Typography>
                   {imageUrl ? (
                     <AnnotationCanvas
-                      imageUrl={imageUrl.startsWith("http")
-                        ? imageUrl
-                        : `${API_BASE_URL}/${imageUrl}`}
-                      onSave={(json, image) => handleSaveAnnotation(section, json, image)}
-                    />
+  imageUrl={
+    imageUrl && imageUrl.startsWith("http")
+      ? imageUrl
+      : `${API_BASE_URL}/${imageUrl}`
+  }
+  onSave={(json, image) => handleSaveAnnotation(section, json, image)}
+/>
+
                   ) : (
                     <Typography color="text.secondary">No image uploaded</Typography>
                   )}
