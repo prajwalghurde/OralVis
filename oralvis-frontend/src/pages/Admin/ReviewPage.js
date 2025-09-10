@@ -9,12 +9,14 @@ const ReviewPage = () => {
   const { id } = useParams();
   const [submission, setSubmission] = useState(null);
 
+  // Fetch submission
   useEffect(() => {
     API.get(`/admin/submission/${id}`)
       .then((res) => setSubmission(res.data))
       .catch((err) => console.error("Error fetching submission:", err));
   }, [id]);
 
+  // Save annotation
   const handleSaveAnnotation = async (section, json, dataUrl) => {
     try {
       const res = await fetch(dataUrl);
@@ -41,14 +43,16 @@ const ReviewPage = () => {
     }
   };
 
+  // Generate PDF
   const handleGeneratePDF = async () => {
     try {
       const { data } = await API.post(`/admin/generate-pdf/${id}`);
       toast.success("PDF generated successfully");
 
-      const pdfUrl = data.pdfUrl.startsWith("http")
-        ? data.pdfUrl
-        : `${API_BASE_URL}/${data.pdfUrl}`;
+      const pdfUrl =
+        data.pdfUrl && data.pdfUrl.startsWith("http")
+          ? data.pdfUrl
+          : `${API_BASE_URL}/${data.pdfUrl}`;
 
       window.open(pdfUrl, "_blank");
     } catch (err) {
@@ -72,6 +76,7 @@ const ReviewPage = () => {
         {["upper", "front", "lower"].map((section) => {
           const imageUrl =
             submission[`${section}AnnotatedUrl`] || submission[`${section}ImageUrl`];
+
           return (
             <Grid item xs={12} md={4} key={section}>
               <Card>
@@ -81,16 +86,17 @@ const ReviewPage = () => {
                   </Typography>
                   {imageUrl ? (
                     <AnnotationCanvas
-  imageUrl={
-    imageUrl && imageUrl.startsWith("http")
-      ? imageUrl
-      : `${API_BASE_URL}/${imageUrl}`
-  }
-  onSave={(json, image) => handleSaveAnnotation(section, json, image)}
-/>
-
+                      imageUrl={
+                        imageUrl.startsWith("http")
+                          ? imageUrl
+                          : `${API_BASE_URL}/${imageUrl}`
+                      }
+                      onSave={(json, image) => handleSaveAnnotation(section, json, image)}
+                    />
                   ) : (
-                    <Typography color="text.secondary">No image uploaded</Typography>
+                    <Typography color="text.secondary">
+                      No image uploaded
+                    </Typography>
                   )}
                 </CardContent>
               </Card>
