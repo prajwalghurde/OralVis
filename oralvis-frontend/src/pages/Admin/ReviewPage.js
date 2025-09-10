@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import API from "../../api/axios";
+import API, { API_BASE_URL } from "../../api/axios";
 import { toast } from "react-toastify";
 import AnnotationCanvas from "../../components/AnnotationCanvas";
 import { Box, Typography, Card, CardContent, Button, Grid } from "@mui/material";
@@ -19,9 +19,7 @@ const ReviewPage = () => {
     try {
       const res = await fetch(dataUrl);
       const blob = await res.blob();
-      const file = new File([blob], `${section}-annotated.png`, {
-        type: "image/png",
-      });
+      const file = new File([blob], `${section}-annotated.png`, { type: "image/png" });
 
       const formData = new FormData();
       formData.append("annotationJson", JSON.stringify(json));
@@ -33,6 +31,7 @@ const ReviewPage = () => {
       });
 
       toast.success(`${section} annotation saved successfully`);
+
       // Refresh submission to get updated annotated URLs
       const updated = await API.get(`/admin/submission/${id}`);
       setSubmission(updated.data);
@@ -47,10 +46,9 @@ const ReviewPage = () => {
       const { data } = await API.post(`/admin/generate-pdf/${id}`);
       toast.success("PDF generated successfully");
 
-      // Use absolute URL if S3, or localhost for local files
-      const pdfUrl = data.pdfUrl.startsWith("http") 
-        ? data.pdfUrl 
-        : `import.meta.env.VITE_API_URL/${data.pdfUrl}`;
+      const pdfUrl = data.pdfUrl.startsWith("http")
+        ? data.pdfUrl
+        : `${API_BASE_URL}/${data.pdfUrl}`;
 
       window.open(pdfUrl, "_blank");
     } catch (err) {
@@ -72,30 +70,30 @@ const ReviewPage = () => {
 
       <Grid container spacing={3} mt={2}>
         {["upper", "front", "lower"].map((section) => {
-  const imageUrl = submission[`${section}AnnotatedUrl`] || submission[`${section}ImageUrl`];
-  return (
-    <Grid item xs={12} md={4} key={section}>
-      <Card>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            {section.charAt(0).toUpperCase() + section.slice(1)} Teeth
-          </Typography>
-          {imageUrl ? (
-            <AnnotationCanvas
-              imageUrl={imageUrl.startsWith("http") ? imageUrl : `${import.meta.env.VITE_API_URL}/${imageUrl}`}
-              onSave={(json, image) => handleSaveAnnotation(section, json, image)}
-            />
-          ) : (
-            <Typography color="text.secondary">
-              No image uploaded
-            </Typography>
-          )}
-        </CardContent>
-      </Card>
-    </Grid>
-  );
-})}
-
+          const imageUrl =
+            submission[`${section}AnnotatedUrl`] || submission[`${section}ImageUrl`];
+          return (
+            <Grid item xs={12} md={4} key={section}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    {section.charAt(0).toUpperCase() + section.slice(1)} Teeth
+                  </Typography>
+                  {imageUrl ? (
+                    <AnnotationCanvas
+                      imageUrl={imageUrl.startsWith("http")
+                        ? imageUrl
+                        : `${API_BASE_URL}/${imageUrl}`}
+                      onSave={(json, image) => handleSaveAnnotation(section, json, image)}
+                    />
+                  ) : (
+                    <Typography color="text.secondary">No image uploaded</Typography>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+          );
+        })}
       </Grid>
 
       <Button
