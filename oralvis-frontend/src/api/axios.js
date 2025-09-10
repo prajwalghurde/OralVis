@@ -1,11 +1,13 @@
 import axios from "axios";
 
-// Fallback to localhost if env variable is missing
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+// Set base URL here (change if needed for production)
+export const API_BASE_URL = "https://oralvis-flvs.onrender.com";
 
-const API = axios.create({ baseURL: API_BASE_URL });
+const API = axios.create({
+  baseURL: API_BASE_URL,
+});
 
-// Attach token if exists
+// Add auth token automatically
 API.interceptors.request.use((req) => {
   const token = localStorage.getItem("token");
   if (token) req.headers.Authorization = `Bearer ${token}`;
@@ -13,4 +15,3 @@ API.interceptors.request.use((req) => {
 });
 
 export default API;
-export { API_BASE_URL }; // export base URL for frontend use
