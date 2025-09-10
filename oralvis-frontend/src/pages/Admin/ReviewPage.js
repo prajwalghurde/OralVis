@@ -50,7 +50,7 @@ const ReviewPage = () => {
       // Use absolute URL if S3, or localhost for local files
       const pdfUrl = data.pdfUrl.startsWith("http") 
         ? data.pdfUrl 
-        : `http://localhost:5000/${data.pdfUrl}`;
+        : `import.meta.env.VITE_API_URL/${data.pdfUrl}`;
 
       window.open(pdfUrl, "_blank");
     } catch (err) {
@@ -82,7 +82,8 @@ const ReviewPage = () => {
                   </Typography>
                   {imageUrl ? (
                     <AnnotationCanvas
-                      imageUrl={imageUrl.startsWith("http") ? imageUrl : `http://localhost:5000/${imageUrl}`}
+                      imageUrl.startsWith("http") ? imageUrl : `${import.meta.env.VITE_API_URL}/${imageUrl}`
+
                       onSave={(json, image) => handleSaveAnnotation(section, json, image)}
                     />
                   ) : (
