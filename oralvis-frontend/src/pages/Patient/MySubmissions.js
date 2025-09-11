@@ -51,7 +51,7 @@ const MySubmissions = () => {
 
                   {sub.pdfUrl && (
                     <Button
-                      href={`http://localhost:5000/${sub.pdfUrl}`}
+                      href={`process.env.REACT_APP_API_URL/${sub.pdfUrl}`}
                       target="_blank"
                       sx={{ mt: 2 }}
                       variant="contained"
