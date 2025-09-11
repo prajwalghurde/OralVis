@@ -1,3 +1,4 @@
+// src/pages/Admin/ReviewPage.js
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import API from "../../api/axios";
@@ -5,7 +6,6 @@ import { toast } from "react-toastify";
 import AnnotationCanvas from "../../components/AnnotationCanvas";
 import { Box, Typography, Card, CardContent, Button, Grid } from "@mui/material";
 
-// Base API URL from environment
 const API_BASE_URL = process.env.REACT_APP_API_URL || "";
 
 const ReviewPage = () => {
@@ -20,28 +20,28 @@ const ReviewPage = () => {
 
   const handleSaveAnnotation = async (section, json, dataUrl) => {
     try {
-      // Convert canvas dataUrl to File
-      const res = await fetch(dataUrl);
-      const blob = await res.blob();
-      const file = new File([blob], `${section}-annotated.png`, {
-        type: "image/png",
-      });
-
-      // Ensure annotationJson is always valid
       const formData = new FormData();
       formData.append("annotationJson", JSON.stringify(json || {}));
-      formData.append("annotatedImage", file);
       formData.append("section", section);
 
-      await API.post(`/admin/annotate/${id}`, formData, {
+      if (dataUrl) {
+        // If we have a data URL, convert to Blob and attach file
+        const res = await fetch(dataUrl);
+        if (!res.ok) throw new Error("Failed to convert data URL to blob");
+        const blob = await res.blob();
+        const file = new File([blob], `${section}-annotated.png`, { type: "image/png" });
+        formData.append("annotatedImage", file);
+      } else {
+        // dataUrl null -> canvas export failed; we'll save only JSON
+        toast.info("Image export failed (CORS). Saving annotation data only.");
+      }
+
+      const { data } = await API.post(`/admin/annotate/${id}`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
       toast.success(`${section} annotation saved successfully`);
-
-      // Refresh submission to get updated annotated URLs
-      const updated = await API.get(`/admin/submission/${id}`);
-      setSubmission(updated.data);
+      setSubmission(data); // use returned submission
     } catch (err) {
       console.error("Error saving annotation:", err);
       toast.error(`Error saving ${section} annotation`);
@@ -53,10 +53,7 @@ const ReviewPage = () => {
       const { data } = await API.post(`/admin/generate-pdf/${id}`);
       toast.success("PDF generated successfully");
 
-      const pdfUrl = data.pdfUrl.startsWith("http")
-        ? data.pdfUrl
-        : `${API_BASE_URL}/${data.pdfUrl}`;
-
+      const pdfUrl = data.pdfUrl.startsWith("http") ? data.pdfUrl : `${API_BASE_URL}/${data.pdfUrl}`;
       window.open(pdfUrl, "_blank");
     } catch (err) {
       console.error(err);
@@ -68,19 +65,14 @@ const ReviewPage = () => {
 
   return (
     <Box m={3}>
-      <Typography variant="h5" gutterBottom>
-        Review Submission
-      </Typography>
+      <Typography variant="h5" gutterBottom>Review Submission</Typography>
       <Typography><b>Name:</b> {submission.name}</Typography>
       <Typography><b>Email:</b> {submission.email}</Typography>
       <Typography><b>Note:</b> {submission.note}</Typography>
 
       <Grid container spacing={3} mt={2}>
         {["upper", "front", "lower"].map((section) => {
-          const imageUrl =
-            submission[`${section}AnnotatedUrl`] ||
-            submission[`${section}ImageUrl`];
-
+          const imageUrl = submission[`${section}AnnotatedUrl`] || submission[`${section}ImageUrl`];
           return (
             <Grid item xs={12} md={4} key={section}>
               <Card>
@@ -90,19 +82,11 @@ const ReviewPage = () => {
                   </Typography>
                   {imageUrl ? (
                     <AnnotationCanvas
-                      imageUrl={
-                        imageUrl.startsWith("http")
-                          ? imageUrl
-                          : `${API_BASE_URL}/${imageUrl}`
-                      }
-                      onSave={(json, image) =>
-                        handleSaveAnnotation(section, json, image)
-                      }
+                      imageUrl={imageUrl.startsWith("http") ? imageUrl : `${API_BASE_URL}/${imageUrl}`}
+                      onSave={(json, image) => handleSaveAnnotation(section, json, image)}
                     />
                   ) : (
-                    <Typography color="text.secondary">
-                      No image uploaded
-                    </Typography>
+                    <Typography color="text.secondary">No image uploaded</Typography>
                   )}
                 </CardContent>
               </Card>
@@ -111,12 +95,7 @@ const ReviewPage = () => {
         })}
       </Grid>
 
-      <Button
-        variant="contained"
-        color="success"
-        sx={{ mt: 3 }}
-        onClick={handleGeneratePDF}
-      >
+      <Button variant="contained" color="success" sx={{ mt: 3 }} onClick={handleGeneratePDF}>
         Generate PDF Report
       </Button>
     </Box>
