@@ -2,11 +2,12 @@
 const express = require("express");
 const dotenv = require("dotenv");
 const connectDB = require("./config/db");
-const authRoutes = require("./routes/authRoutes"); // match your filename
+const authRoutes = require("./routes/authRoutes"); // ensure this filename exists
 const submissionRoutes = require("./routes/submissionRoutes");
 const path = require("path");
 const cors = require("cors");
 const adminRoutes = require("./routes/adminRoutes");
+const fs = require("fs");
 
 dotenv.config();
 connectDB();
@@ -17,10 +18,16 @@ app.use(express.json());
 // Global CORS for API endpoints
 app.use(cors());
 
-// Serve uploads with Access-Control-Allow-Origin header
+// Ensure uploads folder exists (useful for local fallback)
+const uploadsDir = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Serve uploads with Access-Control-Allow-Origin header (still useful for local fallback)
 app.use(
   "/uploads",
-  express.static(path.join(__dirname, "uploads"), {
+  express.static(uploadsDir, {
     setHeaders: function (res /*, filePath */) {
       res.set("Access-Control-Allow-Origin", "*");
     },
