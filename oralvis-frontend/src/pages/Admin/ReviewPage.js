@@ -6,7 +6,7 @@ import AnnotationCanvas from "../../components/AnnotationCanvas";
 import { Box, Typography, Card, CardContent, Button, Grid } from "@mui/material";
 
 // Base API URL from environment
-const API_BASE_URL = process.env.REACT_APP_API_URL ;
+const API_BASE_URL = process.env.REACT_APP_API_URL || "";
 
 const ReviewPage = () => {
   const { id } = useParams();
@@ -20,14 +20,16 @@ const ReviewPage = () => {
 
   const handleSaveAnnotation = async (section, json, dataUrl) => {
     try {
+      // Convert canvas dataUrl to File
       const res = await fetch(dataUrl);
       const blob = await res.blob();
       const file = new File([blob], `${section}-annotated.png`, {
         type: "image/png",
       });
 
+      // Ensure annotationJson is always valid
       const formData = new FormData();
-      formData.append("annotationJson", JSON.stringify(json));
+      formData.append("annotationJson", JSON.stringify(json || {}));
       formData.append("annotatedImage", file);
       formData.append("section", section);
 
@@ -41,7 +43,7 @@ const ReviewPage = () => {
       const updated = await API.get(`/admin/submission/${id}`);
       setSubmission(updated.data);
     } catch (err) {
-      console.error(err);
+      console.error("Error saving annotation:", err);
       toast.error(`Error saving ${section} annotation`);
     }
   };
@@ -75,7 +77,10 @@ const ReviewPage = () => {
 
       <Grid container spacing={3} mt={2}>
         {["upper", "front", "lower"].map((section) => {
-          const imageUrl = submission[`${section}AnnotatedUrl`] || submission[`${section}ImageUrl`];
+          const imageUrl =
+            submission[`${section}AnnotatedUrl`] ||
+            submission[`${section}ImageUrl`];
+
           return (
             <Grid item xs={12} md={4} key={section}>
               <Card>
@@ -85,8 +90,14 @@ const ReviewPage = () => {
                   </Typography>
                   {imageUrl ? (
                     <AnnotationCanvas
-                      imageUrl={imageUrl.startsWith("http") ? imageUrl : `${API_BASE_URL}/${imageUrl}`}
-                      onSave={(json, image) => handleSaveAnnotation(section, json, image)}
+                      imageUrl={
+                        imageUrl.startsWith("http")
+                          ? imageUrl
+                          : `${API_BASE_URL}/${imageUrl}`
+                      }
+                      onSave={(json, image) =>
+                        handleSaveAnnotation(section, json, image)
+                      }
                     />
                   ) : (
                     <Typography color="text.secondary">
