@@ -1,7 +1,8 @@
+// server.js
 const express = require("express");
 const dotenv = require("dotenv");
 const connectDB = require("./config/db");
-const authRoutes = require("./routes/authRoutes");
+const authRoutes = require("./routes/authRoute"); // match your filename
 const submissionRoutes = require("./routes/submissionRoutes");
 const path = require("path");
 const cors = require("cors");
@@ -12,9 +13,21 @@ connectDB();
 
 const app = express();
 app.use(express.json());
-app.use(cors());
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
+// Global CORS for API endpoints
+app.use(cors());
+
+// Serve uploads with Access-Control-Allow-Origin header
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "uploads"), {
+    setHeaders: function (res /*, filePath */) {
+      res.set("Access-Control-Allow-Origin", "*");
+    },
+  })
+);
+
+// Routes
 app.use("/auth", authRoutes);
 app.use("/submission", submissionRoutes);
 app.use("/admin", adminRoutes);
