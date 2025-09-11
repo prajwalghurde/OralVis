@@ -2,7 +2,7 @@
 const express = require("express");
 const dotenv = require("dotenv");
 const connectDB = require("./config/db");
-const authRoutes = require("./routes/authRoute"); // match your filename
+const authRoutes = require("./routes/authRoutes"); // match your filename
 const submissionRoutes = require("./routes/submissionRoutes");
 const path = require("path");
 const cors = require("cors");
