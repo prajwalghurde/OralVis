@@ -57,15 +57,16 @@ router.post(
       }
 
       // ✅ Handle file
-      if (req.file) {
-        const imagePath = isS3
-          ? req.file.location
-          : req.file.path.replace(/\\/g, "/");
+if (req.file) {
+  const imagePath = isS3
+    ? req.file.location
+    : req.file.path.replace(/\\/g, "/");
 
-        if (section === "upper") submission.upperAnnotatedUrl = imagePath;
-        if (section === "front") submission.frontAnnotatedUrl = imagePath;
-        if (section === "lower") submission.lowerAnnotatedUrl = imagePath;
-      } else {
+  if (section === "upper") submission.upperAnnotatedUrl = imagePath;
+  if (section === "front") submission.frontAnnotatedUrl = imagePath;
+  if (section === "lower") submission.lowerAnnotatedUrl = imagePath;
+}
+ else {
         console.warn("⚠️ No file received for section:", section);
       }
 
