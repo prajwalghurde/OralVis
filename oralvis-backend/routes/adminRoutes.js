@@ -58,14 +58,20 @@ router.post(
 
       // ✅ Handle file
 if (req.file) {
-  const imagePath = isS3
-    ? req.file.location
-    : req.file.path.replace(/\\/g, "/");
+  let imagePath;
+  if (isS3) {
+    imagePath = req.file.location; // full S3 URL
+  } else {
+    // prepend API URL for local storage
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get("host")}`;
+    imagePath = `${baseUrl}/${req.file.path.replace(/\\/g, "/")}`;
+  }
 
   if (section === "upper") submission.upperAnnotatedUrl = imagePath;
   if (section === "front") submission.frontAnnotatedUrl = imagePath;
   if (section === "lower") submission.lowerAnnotatedUrl = imagePath;
 }
+
  else {
         console.warn("⚠️ No file received for section:", section);
       }
