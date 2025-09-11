@@ -51,13 +51,14 @@ const MySubmissions = () => {
 
                   {sub.pdfUrl && (
                     <Button
-                      href={`process.env.REACT_APP_API_URL/${sub.pdfUrl}`}
-                      target="_blank"
-                      sx={{ mt: 2 }}
-                      variant="contained"
-                    >
-                      Download Report
-                    </Button>
+  href={sub.pdfUrl.startsWith("http") ? sub.pdfUrl : `${process.env.REACT_APP_API_URL}/${sub.pdfUrl}`}
+  target="_blank"
+  sx={{ mt: 2 }}
+  variant="contained"
+>
+  Download Report
+</Button>
+
                   )}
                 </CardContent>
               </Card>
