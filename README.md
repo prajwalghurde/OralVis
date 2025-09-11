@@ -49,6 +49,43 @@ cd oralvis-frontend
 npm install
 npm start
   </pre>
+  <h1>Environment Variables</h1>
+    <p>
+      Create a <code>.env</code> file in both <code>oralvis-backend/</code> and <code>oralvis-frontend/</code>.
+      Put the values below (replace placeholders with your real secrets / connection strings).
+    </p>
+
+    <div class="note">
+      <strong>Important:</strong>
+      Never commit .env files to GitHub. Add them to <code>.gitignore</code> and store secrets in a secure vault (AWS Secrets Manager, GitHub Actions secrets, or similar).
+    </div>
+
+    <h2>Backend <code>.env</code> (place in <code>oralvis-backend/.env</code>)</h2>
+    <pre>
+PORT=5000
+MONGO_URI=your_mongo_connection_string
+JWT_SECRET=your_jwt_secret
+BASE_URL=http://localhost:5000
+
+# If using AWS S3 (optional)
+USE_S3=false
+AWS_BUCKET_NAME=your_bucket
+AWS_REGION=ap-south-1
+AWS_ACCESS_KEY_ID=your_key
+AWS_SECRET_ACCESS_KEY=your_secret
+    </pre>
+
+    <h2>Frontend <code>.env</code> (place in <code>oralvis-frontend/.env</code>)</h2>
+    <pre>
+REACT_APP_API_URL=http://localhost:5000
+    </pre>
+
+    <h2>Quick usage notes</h2>
+    <ul>
+      <li>After creating or changing a backend <code>.env</code>, restart the backend server so changes take effect.</li>
+      <li>For React, environment variables must start with <code>REACT_APP_</code> and you must restart the dev server after adding them.</li>
+      <li>In production, prefer using environment-specific configuration (e.g., AWS Secrets Manager, GitHub Secrets, or CI/CD environment variables) instead of committing .env files.</li>
+    </ul>
 
   <h2>☁️ AWS Deployment Guide</h2>
 
