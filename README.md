@@ -4,33 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>OralVis - README</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f9fafb;
-      color: #222;
-      line-height: 1.6;
-      margin: 20px;
-    }
-    h1, h2, h3 {
-      color: #0d6efd;
-    }
-    code, pre {
-      background: #f4f4f4;
-      padding: 6px 10px;
-      border-radius: 6px;
-      display: block;
-    }
-    .highlight {
-      background: #e9f5ff;
-      border-left: 4px solid #0d6efd;
-      padding: 10px;
-      margin: 10px 0;
-    }
-    ul {
-      list-style-type: square;
-    }
-  </style>
+  
 </head>
 <body>
 
