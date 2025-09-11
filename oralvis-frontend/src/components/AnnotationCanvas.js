@@ -1,3 +1,4 @@
+// src/components/AnnotationCanvas.js
 import { useEffect, useRef } from "react";
 import { fabric } from "fabric";
 import { Box, Button, Stack } from "@mui/material";
@@ -7,37 +8,41 @@ const AnnotationCanvas = ({ imageUrl, onSave }) => {
   const fabricRef = useRef(null);
 
   useEffect(() => {
-  if (!canvasRef.current) return;
+    if (!canvasRef.current) return;
 
-  const canvas = new fabric.Canvas(canvasRef.current, {
-    width: 300,
-    height: 200,
-  });
-  fabricRef.current = canvas;
+    const canvas = new fabric.Canvas(canvasRef.current, {
+      width: 300,
+      height: 200,
+    });
+    fabricRef.current = canvas;
 
-  let isMounted = true; // ✅ guard to prevent background setting after unmount
+    let isMounted = true;
 
-  if (imageUrl) {
-    fabric.Image.fromURL(
-      imageUrl,
-      (img) => {
-        if (!img || !isMounted || !fabricRef.current) return; // ✅ check before using
-        img.scaleToWidth(canvas.width);
-        img.scaleToHeight(canvas.height);
-        canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas));
-      },
-      { crossOrigin: "anonymous" }
-    );
-  }
+    if (imageUrl) {
+      fabric.Image.fromURL(
+        imageUrl,
+        (img) => {
+          if (!img || !isMounted || !fabricRef.current) return;
+          // try to avoid tainting; request anonymous crossOrigin
+          try {
+            img.set({ crossOrigin: "Anonymous" });
+          } catch (e) {
+            // ignore
+          }
+          img.scaleToWidth(canvas.width);
+          img.scaleToHeight(canvas.height);
+          canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas));
+        },
+        { crossOrigin: "Anonymous" }
+      );
+    }
 
-  return () => {
-    isMounted = false;
-    canvas.dispose();
-    fabricRef.current = null; // ✅ clear reference
-  };
-}, [imageUrl]);
-
-
+    return () => {
+      isMounted = false;
+      canvas.dispose();
+      fabricRef.current = null;
+    };
+  }, [imageUrl]);
 
   const addShape = (type) => {
     if (!fabricRef.current) return;
@@ -56,9 +61,18 @@ const AnnotationCanvas = ({ imageUrl, onSave }) => {
 
   const handleSave = () => {
     const canvas = fabricRef.current;
+    if (!canvas) return;
     const json = canvas.toJSON();
-    const dataUrl = canvas.toDataURL({ format: "png" });
-    onSave(json, dataUrl);
+
+    try {
+      // Try to export image; if canvas is tainted this will throw
+      const dataUrl = canvas.toDataURL({ format: "png" });
+      onSave(json, dataUrl);
+    } catch (err) {
+      // Tainted canvas or other export error: send only JSON
+      console.error("Canvas export failed (likely CORS):", err);
+      onSave(json, null);
+    }
   };
 
   return (
