@@ -1,3 +1,4 @@
+// routes/adminRoutes.js
 const express = require("express");
 const Submission = require("../models/Submission");
 const { protect } = require("../middleware/authMiddleware");
@@ -5,12 +6,12 @@ const router = express.Router();
 const multer = require("multer");
 const path = require("path");
 const generatePDF = require("../utils/pdfGenerator");
-const s3 = require("../config/s3"); // AWS S3 setup
+const s3 = require("../config/s3");
 const multerS3 = require("multer-s3");
 
 const isS3 = process.env.USE_S3 === "true";
 
-// ---------------- Multer Setup ----------------
+// Multer setup
 let upload;
 if (isS3) {
   upload = multer({
@@ -19,20 +20,18 @@ if (isS3) {
       bucket: process.env.AWS_BUCKET_NAME,
       acl: "public-read",
       metadata: (req, file, cb) => cb(null, { fieldName: file.fieldname }),
-      key: (req, file, cb) =>
-        cb(null, Date.now().toString() + "-" + file.originalname),
+      key: (req, file, cb) => cb(null, Date.now().toString() + "-" + file.originalname),
     }),
   });
 } else {
   const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, "uploads/"),
-    filename: (req, file, cb) =>
-      cb(null, Date.now() + path.extname(file.originalname)),
+    filename: (req, file, cb) => cb(null, Date.now() + path.extname(file.originalname)),
   });
   upload = multer({ storage });
 }
 
-// ---------------- Save Annotation ----------------
+// Save annotation
 router.post(
   "/annotate/:id",
   protect(["admin"]),
@@ -41,45 +40,39 @@ router.post(
     try {
       const { section, annotationJson } = req.body;
       const submission = await Submission.findById(req.params.id);
-      if (!submission)
-        return res.status(404).json({ message: "Submission not found" });
+      if (!submission) return res.status(404).json({ message: "Submission not found" });
 
       submission.annotationJson = submission.annotationJson || {};
 
-      // ✅ Safe JSON parse with logging
+      // Safe parse
       try {
-        submission.annotationJson[section] = annotationJson
-          ? JSON.parse(annotationJson)
-          : {};
+        submission.annotationJson[section] = annotationJson ? JSON.parse(annotationJson) : {};
       } catch (err) {
         console.error("❌ Invalid annotationJson:", annotationJson);
         submission.annotationJson[section] = {};
       }
 
-      // ✅ Handle file
-if (req.file) {
-  let imagePath;
-  if (isS3) {
-    imagePath = req.file.location; // full S3 URL
-  } else {
-    // prepend API URL for local storage
-    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get("host")}`;
-    imagePath = `${baseUrl}/${req.file.path.replace(/\\/g, "/")}`;
-  }
+      // Handle file -> save full URL
+      if (req.file) {
+        let imagePath;
+        if (isS3) {
+          imagePath = req.file.location;
+        } else {
+          const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get("host")}`;
+          imagePath = `${baseUrl}/${req.file.path.replace(/\\/g, "/")}`;
+        }
 
-  if (section === "upper") submission.upperAnnotatedUrl = imagePath;
-  if (section === "front") submission.frontAnnotatedUrl = imagePath;
-  if (section === "lower") submission.lowerAnnotatedUrl = imagePath;
-}
-
- else {
+        if (section === "upper") submission.upperAnnotatedUrl = imagePath;
+        if (section === "front") submission.frontAnnotatedUrl = imagePath;
+        if (section === "lower") submission.lowerAnnotatedUrl = imagePath;
+      } else {
         console.warn("⚠️ No file received for section:", section);
       }
 
       submission.status = "annotated";
       await submission.save();
 
-      console.log("✅ Annotation saved for section:", section);
+      console.log("✅ Annotation saved for section:", section, "submission:", submission._id);
       res.json(submission);
     } catch (error) {
       console.error("❌ Annotate error:", error);
@@ -88,13 +81,10 @@ if (req.file) {
   }
 );
 
-// ---------------- Get All Submissions ----------------
+// ... the rest remains same (submissions, submission/:id, generate-pdf) ...
 router.get("/submissions", protect(["admin"]), async (req, res) => {
   try {
-    const submissions = await Submission.find().populate(
-      "patient",
-      "name email phone"
-    );
+    const submissions = await Submission.find().populate("patient", "name email phone");
     res.json(submissions);
   } catch (error) {
     console.error("❌ Fetch submissions error:", error);
@@ -102,15 +92,10 @@ router.get("/submissions", protect(["admin"]), async (req, res) => {
   }
 });
 
-// ---------------- Get Single Submission ----------------
 router.get("/submission/:id", protect(["admin"]), async (req, res) => {
   try {
-    const submission = await Submission.findById(req.params.id).populate(
-      "patient",
-      "name email phone"
-    );
-    if (!submission)
-      return res.status(404).json({ message: "Submission not found" });
+    const submission = await Submission.findById(req.params.id).populate("patient", "name email phone");
+    if (!submission) return res.status(404).json({ message: "Submission not found" });
     res.json(submission);
   } catch (error) {
     console.error("❌ Fetch submission error:", error);
@@ -118,16 +103,12 @@ router.get("/submission/:id", protect(["admin"]), async (req, res) => {
   }
 });
 
-// ---------------- Generate PDF ----------------
 router.post("/generate-pdf/:id", protect(["admin"]), async (req, res) => {
   try {
-    const submission = await Submission.findById(req.params.id).populate(
-      "patient"
-    );
-    if (!submission)
-      return res.status(404).json({ message: "Submission not found" });
+    const submission = await Submission.findById(req.params.id).populate("patient");
+    if (!submission) return res.status(404).json({ message: "Submission not found" });
 
-    const pdfUrl = await generatePDF(submission); // Handles S3 or local
+    const pdfUrl = await generatePDF(submission);
     submission.pdfUrl = pdfUrl.replace(/\\/g, "/");
     submission.status = "reported";
     await submission.save();
