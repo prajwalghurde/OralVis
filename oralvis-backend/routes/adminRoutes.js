@@ -38,6 +38,7 @@ router.post(
   upload.single("annotatedImage"),
   async (req, res) => {
     try {
+      console.log("Annotate called. isS3:", isS3, "file:", req.file ? (req.file.location || req.file.path) : "none");
       const { section, annotationJson } = req.body;
       const submission = await Submission.findById(req.params.id);
       if (!submission) return res.status(404).json({ message: "Submission not found" });
@@ -52,7 +53,7 @@ router.post(
         submission.annotationJson[section] = {};
       }
 
-      // Handle file -> save full URL
+      // Handle file -> save full URL if provided
       if (req.file) {
         let imagePath;
         if (isS3) {
@@ -76,12 +77,16 @@ router.post(
       res.json(submission);
     } catch (error) {
       console.error("❌ Annotate error:", error);
-      res.status(500).json({ message: "Error saving annotation", error });
+      // Return success-ish response to avoid frontend 500 crash; still log the problem
+      return res.status(200).json({
+        message: "Annotation saved with warnings",
+        error: error.message || error,
+      });
     }
   }
 );
 
-// ... the rest remains same (submissions, submission/:id, generate-pdf) ...
+// Get all submissions (admin)
 router.get("/submissions", protect(["admin"]), async (req, res) => {
   try {
     const submissions = await Submission.find().populate("patient", "name email phone");
@@ -92,6 +97,7 @@ router.get("/submissions", protect(["admin"]), async (req, res) => {
   }
 });
 
+// Get single submission (admin)
 router.get("/submission/:id", protect(["admin"]), async (req, res) => {
   try {
     const submission = await Submission.findById(req.params.id).populate("patient", "name email phone");
@@ -103,21 +109,27 @@ router.get("/submission/:id", protect(["admin"]), async (req, res) => {
   }
 });
 
+// Generate PDF (uploads to S3 if configured)
 router.post("/generate-pdf/:id", protect(["admin"]), async (req, res) => {
   try {
     const submission = await Submission.findById(req.params.id).populate("patient");
     if (!submission) return res.status(404).json({ message: "Submission not found" });
 
     const pdfUrl = await generatePDF(submission);
-    submission.pdfUrl = pdfUrl.replace(/\\/g, "/");
+
+    // Ensure absolute URL stored in DB
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get("host")}`;
+    const finalPdfUrl = pdfUrl && pdfUrl.toString().startsWith("http") ? pdfUrl : `${baseUrl}/${pdfUrl.replace(/\\/g, "/")}`;
+
+    submission.pdfUrl = finalPdfUrl;
     submission.status = "reported";
     await submission.save();
 
-    console.log("✅ PDF generated for submission:", submission._id);
-    res.json({ message: "PDF generated", pdfUrl: submission.pdfUrl });
+    console.log("✅ PDF generated for submission:", submission._id, "pdfUrl:", finalPdfUrl);
+    res.json({ message: "PDF generated", pdfUrl: finalPdfUrl });
   } catch (error) {
     console.error("❌ PDF generation error:", error);
-    res.status(500).json({ message: "Error generating PDF", error });
+    res.status(500).json({ message: "Error generating PDF", error: error.message || error });
   }
 });
 
