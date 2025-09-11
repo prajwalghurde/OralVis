@@ -1,30 +1,67 @@
+// utils/pdfGenerator.js
 const PDFDocument = require("pdfkit");
 const fs = require("fs");
 const path = require("path");
 const s3 = require("../config/s3"); // AWS S3 setup
-const multerS3 = require("multer-s3");
-
 const isS3 = process.env.USE_S3 === "true";
+
+async function loadImageBuffer(imagePath) {
+  if (!imagePath) return null;
+  try {
+    if (imagePath.startsWith("http")) {
+      // Use global fetch (Node 18+) to get image bytes
+      const res = await fetch(imagePath);
+      if (!res.ok) {
+        console.warn("Failed to fetch image:", imagePath, "status:", res.status);
+        return null;
+      }
+      const arrayBuffer = await res.arrayBuffer();
+      return Buffer.from(arrayBuffer);
+    } else {
+      // Local path (relative)
+      if (fs.existsSync(imagePath)) {
+        return fs.readFileSync(imagePath);
+      }
+      // Try relative to project root
+      const alt = path.join(__dirname, "..", imagePath);
+      if (fs.existsSync(alt)) {
+        return fs.readFileSync(alt);
+      }
+      console.warn("Local image not found:", imagePath);
+      return null;
+    }
+  } catch (err) {
+    console.error("Error loading image buffer:", err);
+    return null;
+  }
+}
 
 const generatePDF = (submission) => {
   return new Promise(async (resolve, reject) => {
     try {
+      // Ensure uploads dir exists
+      const uploadsDir = path.join(process.cwd(), "uploads");
+      if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
       const doc = new PDFDocument({ size: "A4", margin: 30 });
       const filename = `report-${submission._id}.pdf`;
       const localPath = path.join("uploads", filename).replace(/\\/g, "/");
 
-      let stream;
+      // Preload images (buffers) for PDF embedding
+      const upperImg = submission.upperAnnotatedUrl || submission.upperImageUrl;
+      const frontImg = submission.frontAnnotatedUrl || submission.frontImageUrl;
+      const lowerImg = submission.lowerAnnotatedUrl || submission.lowerImageUrl;
 
-      if (isS3) {
-        // Save to temp local file first
-        stream = fs.createWriteStream(localPath);
-      } else {
-        stream = fs.createWriteStream(localPath);
-      }
+      const [upperBuf, frontBuf, lowerBuf] = await Promise.all([
+        loadImageBuffer(upperImg),
+        loadImageBuffer(frontImg),
+        loadImageBuffer(lowerImg),
+      ]);
 
+      const stream = fs.createWriteStream(localPath);
       doc.pipe(stream);
 
-      // --- Colors ---
+      // --- Header & layout (same as before) ---
       const purple = "#8e44ad";
       const lightGray = "#f3f4f6";
       const blue = "#007bff";
@@ -40,7 +77,6 @@ const generatePDF = (submission) => {
       const detailFontSize = 11;
       const labelFontSize = 10;
 
-      // --- Header ---
       doc.rect(0, 0, doc.page.width, 60).fill(purple);
       doc.fillColor("white").fontSize(titleFontSize).text("Oral Health Screening Report", 0, 20, {
         align: "center",
@@ -55,7 +91,7 @@ const generatePDF = (submission) => {
       doc.text(`Date: ${date}`, 380, 70);
       doc.moveDown(2);
 
-      // --- Screening Report Box ---
+      // Box
       const boxY = doc.y;
       const boxHeight = 250;
       const boxX = 40;
@@ -78,7 +114,7 @@ const generatePDF = (submission) => {
 
       doc.fillColor("black").fontSize(labelFontSize + 2).text("SCREENING REPORT:", 50, boxY + 10);
 
-      // --- Images ---
+      // Images placement
       const imgWidth = 130;
       const imgHeight = 120;
       const spacing = 50;
@@ -95,17 +131,35 @@ const generatePDF = (submission) => {
       const pillColor = "#e74c3c";
 
       // Upper
-      doc.image(submission.upperAnnotatedUrl || submission.upperImageUrl, startX, imgY, { fit: [imgWidth, imgHeight] });
+      if (upperBuf) {
+        try {
+          doc.image(upperBuf, startX, imgY, { fit: [imgWidth, imgHeight] });
+        } catch (e) {
+          console.warn("Error embedding upper image:", e);
+        }
+      }
       drawLabel(doc, "Upper Teeth", startX, imgY + imgHeight + 10, imgWidth, pillColor);
 
       // Front
       const frontX = startX + imgWidth + spacing;
-      doc.image(submission.frontAnnotatedUrl || submission.frontImageUrl, frontX, imgY, { fit: [imgWidth, imgHeight] });
+      if (frontBuf) {
+        try {
+          doc.image(frontBuf, frontX, imgY, { fit: [imgWidth, imgHeight] });
+        } catch (e) {
+          console.warn("Error embedding front image:", e);
+        }
+      }
       drawLabel(doc, "Front Teeth", frontX, imgY + imgHeight + 10, imgWidth, pillColor);
 
       // Lower
       const lowerX = frontX + imgWidth + spacing;
-      doc.image(submission.lowerAnnotatedUrl || submission.lowerImageUrl, lowerX, imgY, { fit: [imgWidth, imgHeight] });
+      if (lowerBuf) {
+        try {
+          doc.image(lowerBuf, lowerX, imgY, { fit: [imgWidth, imgHeight] });
+        } catch (e) {
+          console.warn("Error embedding lower image:", e);
+        }
+      }
       drawLabel(doc, "Lower Teeth", lowerX, imgY + imgHeight + 10, imgWidth, pillColor);
 
       // Legend
@@ -122,7 +176,7 @@ const generatePDF = (submission) => {
 
       doc.moveDown(6);
 
-      // Treatment Recommendations
+      // Recommendations
       doc.fontSize(labelFontSize + 2).fillColor(blue).text("TREATMENT RECOMMENDATIONS:", 50, doc.y);
       doc.moveDown(1);
 
@@ -156,36 +210,47 @@ const generatePDF = (submission) => {
       doc.end();
 
       stream.on("finish", async () => {
-        if (isS3) {
-          // Upload to S3
-          const fileContent = fs.readFileSync(localPath);
-          const params = {
-            Bucket: process.env.AWS_BUCKET_NAME,
-            Key: filename,
-            Body: fileContent,
-            ACL: "public-read",
-          };
-          try {
+        try {
+          if (isS3) {
+            // Upload to S3
+            const fileContent = fs.readFileSync(localPath);
+            const params = {
+              Bucket: process.env.AWS_BUCKET_NAME,
+              Key: filename,
+              Body: fileContent,
+              ACL: "public-read",
+            };
             const { Location } = await s3.upload(params).promise();
+            // Remove local file (optional, keeps filesystem clean)
+            try { fs.unlinkSync(localPath); } catch (e) {}
             resolve(Location); // S3 URL
-          } catch (err) {
-            console.error("S3 upload failed, falling back to local:", err);
-            resolve(localPath); // fallback
+          } else {
+            resolve(localPath); // local storage path
           }
-        } else {
-          resolve(localPath); // local storage
+        } catch (err) {
+          console.error("Error during PDF upload:", err);
+          // fallback: return local path if exists
+          if (fs.existsSync(localPath)) {
+            resolve(localPath);
+          } else {
+            reject(err);
+          }
         }
       });
 
-      stream.on("error", (err) => reject(err));
+      stream.on("error", (err) => {
+        console.error("PDF write error:", err);
+        reject(err);
+      });
     } catch (err) {
+      console.error("PDF generator top-level error:", err);
       reject(err);
     }
   });
 };
 
 function capitalizeFirstLetter(string) {
-  return string.charAt(0).toUpperCase() + string.slice(1);
+  return string ? string.charAt(0).toUpperCase() + string.slice(1) : "";
 }
 
 module.exports = generatePDF;
